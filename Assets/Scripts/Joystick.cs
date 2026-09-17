@@ -12,19 +12,27 @@ public class Joystick : MonoBehaviour,
     public Vector2 InputDirection { get; private set; }
 
     private float radius;
+    private bool isDragging = false;
 
     private void Start()
     {
-        radius = background.sizeDelta.x / 2f;
+        radius = background.rect.width / 2f;
+
+        InputDirection = Vector2.zero;
+        handle.anchoredPosition = Vector2.zero;
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        OnDrag(eventData);
+        // Don't move the joystick when it is only tapped.
+        isDragging = true;
     }
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (!isDragging)
+            return;
+
         Vector2 position;
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -43,6 +51,8 @@ public class Joystick : MonoBehaviour,
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        isDragging = false;
+
         handle.anchoredPosition = Vector2.zero;
         InputDirection = Vector2.zero;
     }
