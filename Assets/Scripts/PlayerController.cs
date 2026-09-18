@@ -7,7 +7,7 @@ public class PlayerController : MonoBehaviour
     public Joystick joystick;
 
     public float acceleration = 8f;
-    public float deceleration = 4f;
+    public float deceleration = 20f;
 
     private float currentSpeed = 0f;
 

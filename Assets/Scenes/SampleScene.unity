@@ -2523,7 +2523,7 @@ MonoBehaviour:
   rotationSpeed: 10
   joystick: {fileID: 1223324057}
   acceleration: 8
-  deceleration: 4
+  deceleration: 20
   jumpForce: 6
   groundCheckDistance: 0.2
   groundLayer:
