@@ -10,7 +10,11 @@ public class PlayerController : MonoBehaviour
     public float deceleration = 4f;
 
     private float currentSpeed = 0f;
+
+    [Header("Jump")]
     public float jumpForce = 6f;
+    public float groundCheckDistance = 0.2f;
+    public LayerMask groundLayer;
 
     private bool isGrounded = true;
 
@@ -22,6 +26,7 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         animator = GetComponentInChildren<Animator>();
     }
+
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space))
@@ -29,23 +34,21 @@ public class PlayerController : MonoBehaviour
             Jump();
         }
     }
+
     public void Jump()
     {
         if (!isGrounded)
             return;
 
-        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
-
         isGrounded = false;
+
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
         if (animator != null)
         {
             animator.SetTrigger("Jump");
         }
-    }
-    private void OnCollisionEnter(Collision collision)
-    {
-        isGrounded = true;
     }
 
     private void FixedUpdate()
@@ -106,10 +109,25 @@ public class PlayerController : MonoBehaviour
             movement.normalized * currentSpeed * Time.fixedDeltaTime
         );
 
+        // Ground check via raycast — pure read, no physics side effects
+        isGrounded = Physics.Raycast(
+            transform.position + Vector3.up * 0.1f,
+            Vector3.down,
+            groundCheckDistance + 0.1f,
+            groundLayer
+        );
+
         if (animator != null)
         {
             float animationSpeed = currentSpeed / moveSpeed;
             animator.SetFloat("Speed", animationSpeed);
+        }
+
+        // Safety clamp — prevents any physics glitch from launching the player
+        float maxVelocity = 20f;
+        if (rb.linearVelocity.magnitude > maxVelocity)
+        {
+            rb.linearVelocity = rb.linearVelocity.normalized * maxVelocity;
         }
     }
 }
