@@ -30,8 +30,6 @@ public class Joystick : MonoBehaviour,
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        // Just start dragging.
-        // The handle stays in the center until the player actually moves.
         isDragging = true;
     }
 
@@ -49,10 +47,8 @@ public class Joystick : MonoBehaviour,
             out localPosition
         );
 
-        // Correct for the background pivot.
         localPosition -= background.rect.center;
 
-        // Keep handle inside joystick.
         localPosition = Vector2.ClampMagnitude(
             localPosition,
             radius
@@ -60,17 +56,17 @@ public class Joystick : MonoBehaviour,
 
         handle.anchoredPosition = localPosition;
 
-        // No movement if finger is very close to center.
-        if (localPosition.magnitude < radius * deadZone)
+        float distance = localPosition.magnitude / radius;
+
+        if (distance < deadZone)
         {
             InputDirection = Vector2.zero;
         }
         else
         {
-            // IMPORTANT:
-            // Normalize so movement speed is FULL regardless
-            // of how far the joystick is pushed.
-            InputDirection = localPosition.normalized;
+            // Keep the joystick magnitude.
+            // This allows Idle → Walk → Run.
+            InputDirection = localPosition / radius;
         }
     }
 
