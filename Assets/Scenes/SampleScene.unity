@@ -18462,7 +18462,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d099b7b344ce4fa48a51898d33d8c990, type: 2}
+  - {fileID: 2100000, guid: 1f06c920f707e2341adf99562fd4be50, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -19126,7 +19126,6 @@ MonoBehaviour:
   joystick: {fileID: 1223324057}
   animationSpeedChange: 5
   animationStopSpeed: 0.8
-  runThreshold: 0.5
   jumpForce: 6
   groundCheckDistance: 0.2
   groundLayer:

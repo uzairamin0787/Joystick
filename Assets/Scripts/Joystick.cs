@@ -12,7 +12,7 @@ public class Joystick : MonoBehaviour,
     public Vector2 InputDirection { get; private set; }
 
     [Range(0f, 1f)]
-    public float deadZone = 0.15f;
+    public float deadZone = 0f;
 
     private float radius;
     private bool isDragging = false;

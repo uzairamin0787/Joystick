@@ -10,8 +10,6 @@ public class PlayerController : MonoBehaviour
     [Header("Animation")]
     public float animationSpeedChange = 5f;
     public float animationStopSpeed = 0.8f;
-    [Range(0f, 1f)]
-    public float runThreshold = 0.5f;
 
     [Header("Jump")]
     public float jumpForce = 6f;
@@ -50,7 +48,6 @@ public class PlayerController : MonoBehaviour
 
         rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
-        // Play jump particle effect
         if (jumpParticles != null)
             jumpParticles.Play();
 
@@ -63,59 +60,65 @@ public class PlayerController : MonoBehaviour
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
-        if (joystick != null && joystick.InputDirection.magnitude > 0.01f)
+        if (joystick != null)
         {
             horizontal = joystick.InputDirection.x;
             vertical = joystick.InputDirection.y;
         }
 
         Vector3 movement = new Vector3(horizontal, 0f, vertical);
+
         float input = Mathf.Clamp01(movement.magnitude);
+        Debug.Log("Joystick Input: " + input);
 
         if (input > 0.01f)
         {
             movement.Normalize();
 
-            // Walk or Run movement
-            float speed = input < runThreshold ? walkSpeed : runSpeed;
+            // Movement speed follows joystick percentage
+            float speed = runSpeed * input;
 
             rb.MovePosition(
                 rb.position + movement * speed * Time.fixedDeltaTime);
 
             // Rotation
             Quaternion targetRotation = Quaternion.LookRotation(movement);
-            rb.MoveRotation(Quaternion.Slerp(
-                rb.rotation,
-                targetRotation,
-                rotationSpeed * Time.fixedDeltaTime));
 
-            // Walk or Run animation
-            float targetAnimation = input < runThreshold ? 0.5f : 1f;
+            rb.MoveRotation(
+                Quaternion.Slerp(
+                    rb.rotation,
+                    targetRotation,
+                    rotationSpeed * Time.fixedDeltaTime
+                ));
 
+            // Animation follows joystick percentage
             animationSpeed = Mathf.MoveTowards(
                 animationSpeed,
-                targetAnimation,
-                animationSpeedChange * Time.fixedDeltaTime);
+                input,
+                animationSpeedChange * Time.fixedDeltaTime
+            );
         }
         else
         {
-            // Player stops immediately,
-            // but animation goes Run → Walk → Idle.
             animationSpeed = Mathf.MoveTowards(
                 animationSpeed,
                 0f,
-                animationStopSpeed * Time.fixedDeltaTime);
+                animationStopSpeed * Time.fixedDeltaTime
+            );
         }
 
         if (animator != null)
+        {
             animator.SetFloat("Speed", animationSpeed);
+        }
 
         // Ground check
         isGrounded = Physics.Raycast(
             transform.position + Vector3.up * 0.1f,
             Vector3.down,
             groundCheckDistance + 0.1f,
-            groundLayer);
+            groundLayer
+        );
 
         // Safety
         if (rb.linearVelocity.magnitude > 20f)
@@ -127,7 +130,9 @@ public class PlayerController : MonoBehaviour
         {
             if (collisionParticles != null)
             {
-                collisionParticles.transform.position = collision.contacts[0].point;
+                collisionParticles.transform.position =
+                    collision.contacts[0].point;
+
                 collisionParticles.Play();
             }
         }
