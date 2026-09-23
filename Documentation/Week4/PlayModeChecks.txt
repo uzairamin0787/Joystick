@@ -1,0 +1,18 @@
+PASS: Scene has game manager and reused Ninja
+PASS: Start enters gameplay
+PASS: Ninja stands on route
+PASS: Coin trigger increments persistent wallet
+PASS: Jump lifts ninja above path
+PASS: Pause freezes simulation
+PASS: Resume restores simulation
+PASS: Night changes sun
+PASS: Bridge supports player over water
+PASS: Final trigger opens victory screen
+PASS: Restart restores all 29 coins
+PASS: Three hits open game over
+PASS: LevelSelect screen opens
+PASS: Settings screen opens
+PASS: ModeSelect screen opens
+PASS: Reward screen opens
+PASS: Store screen opens
+PASS: Tutorial screen opens
