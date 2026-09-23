@@ -10,10 +10,10 @@ namespace MysticJungle
         public ReflectionProbe waterProbe;
         [Range(0, 1)] public float timeOfDay = .22f;
         public float cycleSeconds = 180;
-        public bool automatic = true;
+        public bool automatic = false;
         float nextReflection;
         public string Period => timeOfDay < .42f ? "DAY" : timeOfDay < .64f ? "SUNSET" : "NIGHT";
-        void Start() { Apply(); }
+        void Start() { automatic = false; Apply(); }
         void Update()
         {
             if (automatic) timeOfDay = Mathf.Repeat(timeOfDay + Time.deltaTime / cycleSeconds, 1);
@@ -35,7 +35,11 @@ namespace MysticJungle
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogDensity = .012f;
             RenderSettings.fogColor = Color.Lerp(new Color(.025f,.065f,.12f), new Color(.43f,.65f,.63f), daylight);
             if (Camera.main) Camera.main.backgroundColor = RenderSettings.fogColor;
-            for (int i = 0; i < torches.Length; i++) if (torches[i]) torches[i].intensity = Mathf.Lerp(3, .7f, daylight) * (.9f + .15f * Mathf.PerlinNoise(i * 3, Time.time * 5));
+            for (int i = 0; i < torches.Length; i++) if (torches[i])
+            {
+                torches[i].intensity = Mathf.Lerp(3, .7f, daylight) * (.9f + .15f * Mathf.PerlinNoise(i % 6 * 3, Time.time * 5));
+                if (Application.isPlaying && Camera.main) torches[i].enabled = Mathf.Abs(torches[i].transform.position.z - Camera.main.transform.position.z) < 65;
+            }
         }
     }
 }

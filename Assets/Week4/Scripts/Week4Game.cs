@@ -16,9 +16,12 @@ namespace MysticJungle
         public AudioClip collectSound;
         public Vector3 spawn = new Vector3(0,.1f,2);
         public bool Playing { get; private set; }
-        int coins, health = 3, difficulty, wallet;
+        int coins, difficulty, wallet;
+        public Week4Runner Route => runner;
         string current = "MainMenu";
-        Week4Pickup[] pickups;
+        Week4Runner runner;
+        bool musicEnabled;
+        string settingsReturn = "MainMenu";
         TMP_Text status;
         readonly Color gold = new Color(.77f,.61f,.31f);
         readonly Color green = new Color(.14f,.4f,.13f);
@@ -26,8 +29,10 @@ namespace MysticJungle
         void Awake() { Instance = this; Time.timeScale = 1; }
         void Start()
         {
-            pickups = FindObjectsByType<Week4Pickup>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            wallet = PlayerPrefs.GetInt("W4.Wallet", 0); difficulty = PlayerPrefs.GetInt("W4.Mode", 0);
+            runner = gameObject.AddComponent<Week4Runner>(); runner.Initialize(this);
+            ConfigureRunnerUI();
+            musicEnabled = PlayerPrefs.GetInt("W4.MusicEnabled", 1) == 1; ApplyMusic();
+            wallet = PlayerPrefs.GetInt("W4.Wallet", 0); difficulty = Mathf.Clamp(PlayerPrefs.GetInt("W4.Mode", 0), 0, 2);
             foreach (Button button in ui.GetComponentsInChildren<Button>(true))
             { string action = button.name; button.onClick.AddListener(() => Act(action)); }
             foreach (Slider slider in ui.GetComponentsInChildren<Slider>(true))
@@ -48,11 +53,14 @@ namespace MysticJungle
         { PlayerPrefs.SetFloat("W4." + key, value); if (key == "Music" && music) music.volume = value; if (key == "SFX" && sfx) sfx.volume = value; }
         public void Show(string screen)
         {
+            if (screen == "LevelSelect" || screen == "Victory") screen = "MainMenu";
             current = screen; Playing = screen == "HUD"; player.CanMove = Playing;
             Time.timeScale = Playing || screen == "MainMenu" ? 1 : 0;
             foreach (Transform panel in ui) panel.gameObject.SetActive(panel.name == screen);
             if (player.joystick) { player.joystick.OnPointerUp(null); }
             SetText("MainMenu/Wallet", "YOUR COINS  " + wallet + "     /     " + new[]{"EASY","MEDIUM","HARD"}[difficulty]);
+            SetText("MainMenu/Chapter", "RUN • DODGE • COLLECT\nBest distance: " + PlayerPrefs.GetInt("W4.BestDistance", 0) + " m");
+            if (screen == "Pause" || screen == "MainMenu") SaveWallet();
             SetText("Store/Balance", "BALANCE  " + wallet + " coins");
             SetText("Reward/RewardStatus", PlayerPrefs.GetString("W4.RewardDate", "") == DateTime.UtcNow.ToString("yyyy-MM-dd") ? "Today's reward has been claimed" : "100 coins • one reward each UTC day");
         }
@@ -62,13 +70,15 @@ namespace MysticJungle
             switch(action)
             {
                 case "Start": case "Level1": case "Restart": Begin(); break;
-                case "Levels": Show("LevelSelect"); break;
-                case "Settings": Show("Settings"); break;
+                case "Levels": Begin(); break;
+                case "Settings": settingsReturn = current == "Pause" ? "Pause" : "MainMenu"; Show("Settings"); break;
+                case "MusicToggle": musicEnabled = !musicEnabled; PlayerPrefs.SetInt("W4.MusicEnabled", musicEnabled ? 1 : 0); PlayerPrefs.Save(); ApplyMusic(); break;
                 case "Mode": Show("ModeSelect"); break;
                 case "Store": Show("Store"); break;
                 case "Reward": Show("Reward"); break;
                 case "Tutorial": Show("Tutorial"); break;
-                case "Back": case "Home": Show("MainMenu"); break;
+                case "Back": Show(current == "Settings" ? settingsReturn : "MainMenu"); break;
+                case "Home": SaveWallet(); Show("MainMenu"); break;
                 case "Pause": Show("Pause"); break;
                 case "Resume": Show("HUD"); break;
                 case "Jump": player.Jump(); break;
@@ -96,20 +106,61 @@ namespace MysticJungle
         void EnableTrail() { var trail = player.GetComponent<TrailRenderer>(); if (trail) trail.emitting = PlayerPrefs.GetInt("W4.Trail", 0) == 1; }
         public void Begin()
         {
-            coins = 0; health = 3; player.speed = new[]{6f,7f,8.5f}[difficulty];
-            foreach (var pickup in pickups) pickup.gameObject.SetActive(true);
+            coins = 0; player.speed = new[]{6f,7f,8.5f}[difficulty];
+            runner.ResetRoute();
             player.Teleport(spawn); EnableTrail(); Show("HUD");
+            if (Camera.main && Camera.main.TryGetComponent<Week4Camera>(out var follow)) follow.ResetView();
         }
-        public void Collect() { coins++; wallet++; SaveWallet(); if (sfx && collectSound) sfx.PlayOneShot(collectSound); UpdateHUD(); }
+        public void Collect() { coins++; wallet++; if (sfx && collectSound) sfx.PlayOneShot(collectSound); UpdateHUD(); }
         public void Damage(bool fall)
         {
-            if (!Playing) return; health--; if (fall) player.Teleport(spawn);
-            if (health <= 0) { SetText("GameOver/Results", "COINS   " + coins + "\nDISTANCE   " + Mathf.Max(0, Mathf.RoundToInt(player.transform.position.z - spawn.z)) + " m\nTry again. The ruins are waiting."); Show("GameOver"); }
-            UpdateHUD();
+            if (fall) EndRun("You left the path");
         }
-        public void Finish() { SetText("Victory/Results", "THE SANCTUARY IS FOUND\n\nCollected " + coins + " coins\nBest coins: " + Mathf.Max(coins,PlayerPrefs.GetInt("W4.Best",0))); PlayerPrefs.SetInt("W4.Best",Mathf.Max(coins,PlayerPrefs.GetInt("W4.Best",0))); PlayerPrefs.Save(); Show("Victory"); }
-        void UpdateHUD() { if (status) status.text = "LIFE " + health + "/3     COINS " + coins + "\n" + Mathf.Max(0,Mathf.RoundToInt(player.transform.position.z-spawn.z)) + " m    •    " + lighting.Period; }
+        public void EndRun(string reason)
+        {
+            if (!Playing) return;
+            SaveWallet();
+            PlayerPrefs.SetInt("W4.BestDistance", Mathf.Max(PlayerPrefs.GetInt("W4.BestDistance", 0), Mathf.RoundToInt(runner.Distance)));
+            PlayerPrefs.Save();
+            SetText("GameOver/Results", "COINS   " + coins + "\nDISTANCE   " + Mathf.RoundToInt(runner.Distance) + " m\n\n" + reason);
+            Show("GameOver");
+        }
+        public void Finish() { } // Legacy goal triggers no longer end a run.
+        void UpdateHUD() { if (status) status.text = "COINS " + coins + "\n" + Mathf.RoundToInt(runner.Distance) + " m    •    " + lighting.Period; }
         void OnDestroy() { Time.timeScale = 1; if (Instance == this) Instance = null; }
+        void OnApplicationPause(bool paused) { if (paused) { SaveWallet(); if (Playing) Show("Pause"); } }
+        void OnApplicationQuit() { SaveWallet(); }
+        void ApplyMusic()
+        {
+            if (music) { music.loop = true; music.mute = !musicEnabled; if (music.clip && !music.isPlaying) music.Play(); }
+            SetText("Settings/MusicToggle/Label", musicEnabled ? "MUSIC: ON" : "MUSIC: OFF");
+        }
+        public void ConfigureRunnerUI()
+        {
+            var levels = ui.Find("MainMenu/Content/Levels"); if (levels) levels.gameObject.SetActive(false);
+            string[] actions = {"Start", "Mode", "Settings", "Store", "Reward", "Tutorial"};
+            for (int i = 0; i < actions.Length; i++)
+            {
+                var button = ui.Find("MainMenu/Content/" + actions[i]) as RectTransform;
+                if (button) button.anchoredPosition = new Vector2(0, -355 - i * 110);
+            }
+            var chapter = ui.Find("MainMenu/Content/Chapter") as RectTransform;
+            if (chapter) chapter.anchoredPosition = new Vector2(0, -1080);
+            SetText("MainMenu/Start/Label", "ENDLESS RUN");
+            SetText("MainMenu/Chapter", "RUN • DODGE • COLLECT\nBest distance: " + PlayerPrefs.GetInt("W4.BestDistance", 0) + " m");
+            SetText("Tutorial/Instructions", "MOVE\nWASD / arrows or joystick\nForward, backward and sideways\n\nJUMP\nSpace or JUMP to cross fallen logs\n\nSURVIVE\nStay on the path and bridge\nAvoid rocks, pillars and bushes\n\nEXPLORE\nThe route continues beyond the ruins");
+            SetText("ModeSelect/Note", "Difficulty sets your movement speed.\nLogs block you: jump to cross them.\nLeaving the path or hitting scenery ends the run.");
+            SetText("Settings/LightingStatus", "Automatic cycle: OFF");
+            var cycle = ui.Find("Settings/Content/Cycle"); if (cycle) cycle.gameObject.SetActive(true);
+            var settings = ui.Find("Settings/Content");
+            if (!settings.Find("MusicToggle")) {
+                var toggle = Btn(settings, "MusicToggle", "MUSIC: ON", -285, green);
+                Anchor(toggle.GetComponent<RectTransform>(), new Vector2(.5f,1), new Vector2(220,-275), new Vector2(235,55));
+                toggle.GetComponentInChildren<TMP_Text>().fontSize = 24;
+            }
+            var pause = ui.Find("Pause/Content");
+            if (!pause.Find("Settings")) Btn(pause, "Settings", "SETTINGS", -830, brown);
+        }
 
         // Called by the editor builder: all UI objects remain editable in the saved scene.
         public void BuildUI()
